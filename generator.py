@@ -3,69 +3,53 @@
 import random
 import adm_types
 import numpy
+import argparse
+import re
 
-SEED = 42
 
-random.seed(SEED)
+
+argparser = argparse.ArgumentParser()
+argparser.add_argument("-n", "--num-records", help = "the number of records to be generated", type = int, required = True)
+argparser.add_argument("-o", "--output", help = "output file", type = str, required = True)
+argparser.add_argument("-p", "--pretty-print", help = "pretty print generated output", action = "store_true")
+argparser.add_argument("-s", "--seed", help = "seed for random number generator", type = int, default = 42)
+argparser.add_argument("-c", "--shares", help = "approximate share of primitive, incomple information, and derived types in the records respectively", nargs = 3, default = [10, 1, 9])
+args = argparser.parse_args()
+
+random.seed(args.seed)
 numpy.random.seed(int(random.getrandbits(4 * 8))) # TODO: legacy (see https://numpy.org/doc/stable/reference/random/generated/numpy.random.seed.html)
 
-test = {
-        "1": adm_types.ADMBoolean.generate_rand(),
-        "2": adm_types.ADMString.generate_rand(),
-        "3": adm_types.ADMTinyInt.generate_rand(),
-        "4": adm_types.ADMSmallInt.generate_rand(),
-        "5": adm_types.ADMInt.generate_rand(),
-        "6": adm_types.ADMBigInt.generate_rand(),
-        "7": adm_types.ADMFloat.generate_rand(),
-        "8": adm_types.ADMFloat.generate_rand(1),
-        "9": adm_types.ADMDouble.generate_rand(),
-        "10": adm_types.ADMDouble.generate_rand(1),
-        "11": adm_types.ADMBinary.generate_rand(),
-        "12": adm_types.ADMPoint.generate_rand(),
-        "13": adm_types.ADMLine.generate_rand(),
-        "14": adm_types.ADMRectangle.generate_rand(),
-        "15": adm_types.ADMCircle.generate_rand(),
-        "16": adm_types.ADMPolygon.generate_rand(),
-        "17": adm_types.ADMDate.generate_rand(),
-        "18": adm_types.ADMTime.generate_rand(),
-        "19": adm_types.ADMDateTime.generate_rand(),
-        "20": adm_types.ADMDuration.generate_rand(),
-        "21": adm_types.ADMYearMonthDuration.generate_rand(),
-        "22": adm_types.ADMDayTimeDuration.generate_rand(),
-        "23": adm_types.ADMInterval.generate_rand(),
-        "24": adm_types.ADMUUID.generate_rand(),
-        "25": adm_types.ADMNull.generate_rand(),
-        "26": adm_types.ADMMissing.generate_rand(),
-        "27": adm_types.ADMObject({
-                "1": adm_types.ADMBoolean(1),
-                "2": adm_types.ADMDouble.generate_rand(1),
-                "3": adm_types.ADMObject({
-                        "1": adm_types.ADMString.generate_rand()
-                    }),
-                "4": adm_types.ADMArray([1, "a"])
-            }),
-        "28": adm_types.ADMArray([
-                adm_types.ADMString("test"),
-                adm_types.ADMBinary.generate_rand()
-            ]),
-        "29": adm_types.ADMMultiset([
-                adm_types.ADMMissing.generate_rand(),
-                adm_types.ADMArray([
-                    adm_types.ADMInt(1),
-                    adm_types.ADMTinyInt(2)
-                ]),
-                adm_types.ADMMultiset([
-                    adm_types.ADMString("a"),
-                    adm_types.ADMString("b"),
-                    adm_types.ADMNull()
-                ]),
-                adm_types.ADMMultiset([
-                    adm_types.ADMPoint.generate_rand()
-                    ])
-                ]),
-        "30": adm_types.ADMMultiset([adm_types.ADMDouble.generate_rand()]),
-        "31": adm_types.ADMObject.generate_rand(),
-        "32": adm_types.ADMArray.generate_rand(),
-        "33": adm_types.ADMMultiset.generate_rand(),
-}
-print(adm_types.format(test, True))
+PRIMITIVE_TYPE_SHARE = args.shares[0]
+INCOMPLETE_INFORMATION_TYPE_SHARE = args.shares[1]
+DERIVED_TYPE_SHARE = args.shares[2]
+SUM_SHARES_NON_DERIVED_TYPE = PRIMITIVE_TYPE_SHARE + INCOMPLETE_INFORMATION_TYPE_SHARE
+SUM_SHARES = SUM_SHARES_NON_DERIVED_TYPE + DERIVED_TYPE_SHARE
+
+def encapsulate_value(val: str, pretty_print: bool) -> str:
+    key = adm_types.ADMString.generate_random_string(2, 3) # TODO: maybe set possible string lengths depending on args.num_records
+
+    return "{{{pp1}\"{key}\": {val}{pp2}}}\n".format(key = key, val = val, pp1 = "\n" + " " * adm_types.ADM_INDENTATION if pretty_print else "", pp2 = "\n" if pretty_print else "")
+
+
+with open(args.output, "w") as output_file:
+    for _ in range(args.num_records):
+        type_choice = random.randint(1, SUM_SHARES)
+
+        if type_choice <= SUM_SHARES_NON_DERIVED_TYPE:
+            if PRIMITIVE_TYPE_SHARE > 0 and type_choice <= PRIMITIVE_TYPE_SHARE:
+                record_val = adm_types.RandomPrimitiveTypeGenerator.generate_rand()
+            else:
+                record_val = adm_types.RandomIncompleteInformationTypeGenerator.generate_rand()
+
+            output_file.write(encapsulate_value(adm_types.format(record_val, args.pretty_print), args.pretty_print))
+        else:
+            record_val = adm_types.RandomDerivedTypeGenerator.generate_rand()
+
+            if isinstance(record_val, adm_types.ADMObject):
+                output_file.write(adm_types.format(record_val, args.pretty_print) + "\n")
+            else:
+                record_val_str = adm_types.format(record_val, args.pretty_print)
+                if args.pretty_print:
+                    record_val_str = re.sub(r"\n(\s*)", r"\n{indent}\g<1>".format(indent = " " * adm_types.ADM_INDENTATION), record_val_str)
+
+                output_file.write(encapsulate_value(record_val_str, args.pretty_print))

@@ -12,6 +12,8 @@ REMOVE_QUOTE_ESCAPE_MARKER = '😃'
 SET_QUOTE_ESCAPE_MARKER = '♡'
 REPLACE_MULTISET_BRACES_ESCAPE_MARKER = '😘'
 
+ADM_INDENTATION = 4
+
 class ADMJSONEncoder(json.JSONEncoder):
     def default(self, o):
         if getattr(o, "__module__") == __name__:
@@ -20,14 +22,20 @@ class ADMJSONEncoder(json.JSONEncoder):
             return json.JSONEncoder.default(self, o)
 
 # formats an ADM instance into a string that represents it
+# kind of a hack, probably breaks if you look at it the wrong way
 def format(adm: object, pretty_print = False) -> str:
-    adm_string = json.dumps(adm, cls = ADMJSONEncoder, indent = 4 if pretty_print else None, ensure_ascii = False)
+    adm_string = json.dumps(adm, cls = ADMJSONEncoder, indent = ADM_INDENTATION if pretty_print else None, ensure_ascii = False)
+
+    # replace e.g. "tiny(42)" with tiny("42") through the use of our escape markers that we previously inserted into the strings
     adm_string = re.sub(r"\"{re}|{re}\"".format(re = REMOVE_QUOTE_ESCAPE_MARKER), "", adm_string)
+    adm_string = adm_string.replace(SET_QUOTE_ESCAPE_MARKER, '"')
+
+    # multisets are represented as arrays where the first and last elements are str(REPLACE_MULTISET_BRACES_ESCAPE_MARKER)
     # does this already make me a regex wizard apprentice?
     # grouping syntax: https://stackoverflow.com/a/5984688
+    adm_string = re.sub(r"\[\s*\"{re}\",\s*\"{re}\"\s*\]".format(re = REPLACE_MULTISET_BRACES_ESCAPE_MARKER), "{{}}", adm_string) # for empty multisets
     adm_string = re.sub(r"\[\s*\"{re}\",(( )?|(\n)?)".format(re = REPLACE_MULTISET_BRACES_ESCAPE_MARKER), r"{{\g<3>", adm_string)
     adm_string = re.sub(r",\s*\"{re}\"(\s*)\]".format(re = REPLACE_MULTISET_BRACES_ESCAPE_MARKER), r"\g<1>}}", adm_string)
-    adm_string = adm_string.replace(SET_QUOTE_ESCAPE_MARKER, '"')
 
     return adm_string
 
@@ -477,18 +485,19 @@ class ADMObject:
         return self.val
 
     @staticmethod
-    def generate_rand(min_members = 0, max_members = 5, max_depth = 5):
+    def generate_rand(min_members = 0, max_members = 7, max_depth = 5):
         val = {}
         num_members = random.randint(min_members, max_members)
 
         for i in range(num_members):
             derived_type_min_members = random.randint(min_members, max_members)
             derived_type_max_members = random.randint(derived_type_min_members, max_members)
-            derived_type_max_depth = random.randint(min(1, 0), max_depth)
+            derived_type_max_depth = random.randrange(min(1, 0), max_depth) # next level's max_depth is at least 1 smaller than this level's
 
-            # append current i to __guarantee__ that we have unique keys for this object
+            # just using i as a key would be boring so we just apend the
+            # current i to __guarantee__ that we have unique keys for this object
             key = ADMString.generate_random_string() + str(i)
-            value = RandomDerivedTypeGeneratorHelper.generate_rand_derived_type_member(derived_type_min_members, derived_type_max_members, derived_type_max_depth)
+            value = RandomDerivedTypeGenerator.generate_rand_derived_type_member(derived_type_min_members, derived_type_max_members, derived_type_max_depth)
             val.update({key: value})
 
         return ADMObject(val)
@@ -501,16 +510,16 @@ class ADMArray:
         return self.val
 
     @staticmethod
-    def generate_rand(min_members = 0, max_members = 5, max_depth = 5):
+    def generate_rand(min_members = 0, max_members = 7, max_depth = 5):
         val = []
         num_members = random.randint(min_members, max_members)
 
         for _ in range(num_members):
             derived_type_min_members = random.randint(min_members, max_members)
             derived_type_max_members = random.randint(derived_type_min_members, max_members)
-            derived_type_max_depth = random.randint(min(1, 0), max_depth)
+            derived_type_max_depth = random.randrange(min(1, 0), max_depth) # next level's max_depth is at least 1 smaller than this level's
 
-            val.append(RandomDerivedTypeGeneratorHelper.generate_rand_derived_type_member(derived_type_min_members, derived_type_max_members, derived_type_max_depth))
+            val.append(RandomDerivedTypeGenerator.generate_rand_derived_type_member(derived_type_min_members, derived_type_max_members, derived_type_max_depth))
 
         return ADMArray(val)
 
@@ -518,7 +527,7 @@ class ADMMultiset:
     def __init__(self, val):
         self.val = val
 
-    def toADM(self, indent = None):
+    def toADM(self):
         # small hack because returning a string would be way more complicated when it comes to formatting and escaping
         # now, when we already have a json string of everything, we can just convert every array
         # [ str(REPLACE_MULTISET_BRACES_ESCAPE_MARKER), a, ..., z, str(REPLACE_MULTISET_BRACES_ESCAPE_MARKER) ] into {{ a, ..., z }}
@@ -529,20 +538,20 @@ class ADMMultiset:
         return copy
 
     @staticmethod
-    def generate_rand(min_members = 0, max_members = 5, max_depth = 5):
+    def generate_rand(min_members = 0, max_members = 7, max_depth = 5):
         val = []
         num_members = random.randint(min_members, max_members)
 
         for _ in range(num_members):
             derived_type_min_members = random.randint(min_members, max_members)
             derived_type_max_members = random.randint(derived_type_min_members, max_members)
-            derived_type_max_depth = random.randint(min(1, 0), max_depth)
+            derived_type_max_depth = random.randrange(min(1, 0), max_depth) # next level's max_depth is at least 1 smaller than this level's
 
-            val.append(RandomDerivedTypeGeneratorHelper.generate_rand_derived_type_member(derived_type_min_members, derived_type_max_members, derived_type_max_depth))
+            val.append(RandomDerivedTypeGenerator.generate_rand_derived_type_member(derived_type_min_members, derived_type_max_members, derived_type_max_depth))
 
         return ADMMultiset(val)
 
-class RandomDerivedTypeGeneratorHelper:
+class RandomDerivedTypeGenerator:
     # likelihood of type category x: (share of x) / (sum of all category shares)
     PRIMITIVE_TYPE_SHARE = 12
     INCOMPLETE_INFORMATION_TYPE_SHARE = 1
@@ -552,23 +561,28 @@ class RandomDerivedTypeGeneratorHelper:
     NUM_DERIVED_TYPES = 3
 
     @staticmethod
-    def generate_rand_derived_type_member(derived_type_min_members = 0, derived_type_max_members = 5, derived_type_max_depth = 5):
+    def generate_rand_derived_type_member(derived_type_min_members = 0, derived_type_max_members = 7, derived_type_max_depth = 5):
         if derived_type_max_depth > 0:
-            choice = random.randint(1, RandomDerivedTypeGeneratorHelper.SUM_SHARES)
+            choice = random.randint(1, RandomDerivedTypeGenerator.SUM_SHARES)
         else:
-            choice = random.randint(1, RandomDerivedTypeGeneratorHelper.SUM_SHARES_NON_DERIVED_TYPE)
+            choice = random.randint(1, RandomDerivedTypeGenerator.SUM_SHARES_NON_DERIVED_TYPE)
 
-        if choice <= RandomDerivedTypeGeneratorHelper.PRIMITIVE_TYPE_SHARE:
+        if RandomDerivedTypeGenerator.PRIMITIVE_TYPE_SHARE > 0 and choice <= RandomDerivedTypeGenerator.PRIMITIVE_TYPE_SHARE:
             return RandomPrimitiveTypeGenerator.generate_rand()
-        elif choice <= RandomDerivedTypeGeneratorHelper.SUM_SHARES_NON_DERIVED_TYPE:
+        elif choice <= RandomDerivedTypeGenerator.SUM_SHARES_NON_DERIVED_TYPE:
             return RandomIncompleteInformationTypeGenerator.generate_rand()
         else:
-            derived_type_choice = random.randint(1, RandomDerivedTypeGeneratorHelper.NUM_DERIVED_TYPES)
+            return RandomDerivedTypeGenerator.generate_rand(derived_type_min_members, derived_type_max_members, derived_type_max_depth)
 
-            if derived_type_choice == 1:
-                deriv = ADMObject.generate_rand(derived_type_min_members, derived_type_max_members, derived_type_max_depth)
-            elif derived_type_choice == 2:
-                deriv = ADMArray.generate_rand(derived_type_min_members, derived_type_max_members, derived_type_max_depth)
-            else:
-                deriv = ADMMultiset.generate_rand(derived_type_min_members, derived_type_max_members, derived_type_max_depth)
-            return deriv
+    @staticmethod
+    def generate_rand(min_members = 0, max_members = 7, max_depth = 5):
+        derived_type_choice = random.randint(1, RandomDerivedTypeGenerator.NUM_DERIVED_TYPES)
+
+        if derived_type_choice == 1:
+            deriv = ADMObject.generate_rand(min_members, max_members, max_depth)
+        elif derived_type_choice == 2:
+            deriv = ADMArray.generate_rand(min_members, max_members, max_depth)
+        else:
+            deriv = ADMMultiset.generate_rand(min_members, max_members, max_depth)
+
+        return deriv
