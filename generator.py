@@ -17,9 +17,9 @@ test = {
         "5": adm_types.ADMInt.generate_rand(),
         "6": adm_types.ADMBigInt.generate_rand(),
         "7": adm_types.ADMFloat.generate_rand(),
-        "8": adm_types.ADMFloat.generate_rand(True),
+        "8": adm_types.ADMFloat.generate_rand(1),
         "9": adm_types.ADMDouble.generate_rand(),
-        "10": adm_types.ADMDouble.generate_rand(True),
+        "10": adm_types.ADMDouble.generate_rand(1),
         "11": adm_types.ADMBinary.generate_rand(),
         "12": adm_types.ADMPoint.generate_rand(),
         "13": adm_types.ADMLine.generate_rand(),
@@ -37,8 +37,8 @@ test = {
         "25": adm_types.ADMNull.generate_rand(),
         "26": adm_types.ADMMissing.generate_rand(),
         "27": adm_types.ADMObject({
-                "1": adm_types.ADMBoolean(False),
-                "2": adm_types.ADMDouble.generate_rand(True),
+                "1": adm_types.ADMBoolean(1),
+                "2": adm_types.ADMDouble.generate_rand(1),
                 "3": adm_types.ADMObject({
                         "1": adm_types.ADMString.generate_rand()
                     }),
@@ -63,6 +63,9 @@ test = {
                     adm_types.ADMPoint.generate_rand()
                     ])
                 ]),
-        "30": adm_types.ADMMultiset([adm_types.ADMDouble.generate_rand()])
+        "30": adm_types.ADMMultiset([adm_types.ADMDouble.generate_rand()]),
+        "31": adm_types.ADMObject.generate_rand(),
+        "32": adm_types.ADMArray.generate_rand(),
+        "33": adm_types.ADMMultiset.generate_rand(),
 }
 print(adm_types.format(test, True))

@@ -43,12 +43,12 @@ class ADMEscapeMarkerException(ADMArgumentException):
 
     @staticmethod
     def check_alphabet(alphabet: list):
-        escape_markers = [REMOVE_QUOTE_ESCAPE_MARKER, SET_QUOTE_ESCAPE_MARKER, REPLACE_MULTISET_BRACES_ESCAPE_MARKER]
+        special_characters = [REMOVE_QUOTE_ESCAPE_MARKER, SET_QUOTE_ESCAPE_MARKER, REPLACE_MULTISET_BRACES_ESCAPE_MARKER, '_']
 
         for symbol in alphabet:
-            for escape_marker in escape_markers:
-                if escape_marker in symbol:
-                    raise ADMEscapeMarkerException("symbol '{symbol}' in alphabet contains the escape marker {escape_marker}".format(symbol = symbol, escape_marker = escape_marker))
+            for special_character in special_characters:
+                if special_character in symbol:
+                    raise ADMEscapeMarkerException("symbol '{symbol}' in alphabet contains the special character {special_character}".format(symbol = symbol, special_character = special_character))
         
 
 
@@ -76,14 +76,18 @@ class ADMString:
         return self.val
 
     @staticmethod
-    def generate_rand(length = 5, alphabet = list(string.ascii_lowercase)):
-        ADMEscapeMarkerException.check_alphabet(alphabet)
-
+    def generate_random_string(min_length = 5, max_length = 10, alphabet = list(string.ascii_lowercase)):
         rand_string = ""
-        for _ in range(length):
+        for _ in range(random.randint(min_length, max_length)):
             rand_string += str(alphabet[random.randrange(0, len(alphabet))])
 
-        return ADMString(rand_string)
+        return rand_string
+
+    @staticmethod
+    def generate_rand(min_length = 5, max_length = 10, alphabet = list(string.ascii_lowercase)):
+        ADMEscapeMarkerException.check_alphabet(alphabet)
+
+        return ADMString(ADMString.generate_random_string(min_length, max_length, alphabet))
 
 class AbstractADMNumberBaseType:
     min_val = 0
@@ -171,8 +175,8 @@ class ADMFloat(AbstractADMFloatingPointBaseType):
         return numpy.random.uniform(ADMFloat.min_val, ADMFloat.max_val)
 
     @staticmethod
-    def generate_rand(special_value = False):
-        if special_value:
+    def generate_rand(special_value_chance = 0.05):
+        if random.uniform(0, 1) <= special_value_chance:
             return ADMFloat(AbstractADMFloatingPointBaseType.generate_rand_special_value())
         else:
             # numpy-random.uniform(a, b) only draws from [a, b) but
@@ -190,8 +194,8 @@ class ADMDouble(AbstractADMFloatingPointBaseType):
         return ADMFloat.random_float() # TODO: double boundaries cause overflow
 
     @staticmethod
-    def generate_rand(special_value = False):
-        if special_value:
+    def generate_rand(special_value_chance = 0.05):
+        if random.uniform(0, 1) <= special_value_chance:
             return ADMDouble(AbstractADMFloatingPointBaseType.generate_rand_special_value())
         else:
             # numpy-random.uniform(a, b) only draws from [a, b) but
@@ -302,11 +306,11 @@ class ADMPolygon:
         return format_string.format(remq = REMOVE_QUOTE_ESCAPE_MARKER, setq = SET_QUOTE_ESCAPE_MARKER)
 
     @staticmethod
-    def generate_rand(points = 6):
+    def generate_rand(max_points = 6):
         x_values = []
         y_values = []
         
-        for _ in range(points):
+        for _ in range(random.randint(4, max_points)):
             x_values.append(ADMDouble.random_double())
             y_values.append(ADMDouble.random_double())
 
@@ -427,6 +431,15 @@ class ADMUUID:
     def generate_rand():
         return ADMUUID(ADMUUID.generate_reproducible_uuid())
 
+class RandomPrimitiveTypeGenerator:
+    primitive_gen = [ADMBoolean.generate_rand, ADMString.generate_rand, ADMTinyInt.generate_rand, ADMSmallInt.generate_rand, ADMInt.generate_rand, ADMBigInt.generate_rand, ADMFloat.generate_rand, ADMDouble.generate_rand, ADMBinary.generate_rand, ADMPoint.generate_rand, ADMLine.generate_rand, ADMRectangle.generate_rand, ADMCircle.generate_rand, ADMPolygon.generate_rand, ADMDate.generate_rand, ADMTime.generate_rand, ADMDateTime.generate_rand, ADMDuration.generate_rand, ADMYearMonthDuration.generate_rand, ADMDayTimeDuration.generate_rand, ADMInterval.generate_rand, ADMUUID.generate_rand]
+
+    @staticmethod
+    def generate_rand():
+        return RandomPrimitiveTypeGenerator.primitive_gen[random.randrange(len(RandomPrimitiveTypeGenerator.primitive_gen))]()
+
+
+
 class ADMNull:
     val = None
 
@@ -447,29 +460,64 @@ class ADMMissing:
     def generate_rand():
         return ADMMissing()
 
-class AbstractADMDerivedType:
+class RandomIncompleteInformationTypeGenerator:
+    incomplete_gen = [ADMNull.generate_rand, ADMMissing.generate_rand]
+
+    @staticmethod
+    def generate_rand():
+        return RandomIncompleteInformationTypeGenerator.incomplete_gen[random.randrange(len(RandomIncompleteInformationTypeGenerator.incomplete_gen))]()
+
+
+
+class ADMObject:
     def __init__(self, val):
         self.val = val
 
-class ADMObject(AbstractADMDerivedType):
     def toADM(self):
         return self.val
 
     @staticmethod
-    def generate_rand():
-        # TODO
-        pass
+    def generate_rand(min_members = 0, max_members = 5, max_depth = 5):
+        val = {}
+        num_members = random.randint(min_members, max_members)
 
-class ADMArray(AbstractADMDerivedType):
+        for i in range(num_members):
+            derived_type_min_members = random.randint(min_members, max_members)
+            derived_type_max_members = random.randint(derived_type_min_members, max_members)
+            derived_type_max_depth = random.randint(min(1, 0), max_depth)
+
+            # append current i to __guarantee__ that we have unique keys for this object
+            key = ADMString.generate_random_string() + str(i)
+            value = RandomDerivedTypeGeneratorHelper.generate_rand_derived_type_member(derived_type_min_members, derived_type_max_members, derived_type_max_depth)
+            val.update({key: value})
+
+        return ADMObject(val)
+
+class ADMArray:
+    def __init__(self, val):
+        self.val = val
+
     def toADM(self):
         return self.val
 
     @staticmethod
-    def generate_rand():
-        # TODO
-        pass
+    def generate_rand(min_members = 0, max_members = 5, max_depth = 5):
+        val = []
+        num_members = random.randint(min_members, max_members)
 
-class ADMMultiset(AbstractADMDerivedType):
+        for _ in range(num_members):
+            derived_type_min_members = random.randint(min_members, max_members)
+            derived_type_max_members = random.randint(derived_type_min_members, max_members)
+            derived_type_max_depth = random.randint(min(1, 0), max_depth)
+
+            val.append(RandomDerivedTypeGeneratorHelper.generate_rand_derived_type_member(derived_type_min_members, derived_type_max_members, derived_type_max_depth))
+
+        return ADMArray(val)
+
+class ADMMultiset:
+    def __init__(self, val):
+        self.val = val
+
     def toADM(self, indent = None):
         # small hack because returning a string would be way more complicated when it comes to formatting and escaping
         # now, when we already have a json string of everything, we can just convert every array
@@ -481,6 +529,46 @@ class ADMMultiset(AbstractADMDerivedType):
         return copy
 
     @staticmethod
-    def generate_rand():
-        # TODO
-        pass
+    def generate_rand(min_members = 0, max_members = 5, max_depth = 5):
+        val = []
+        num_members = random.randint(min_members, max_members)
+
+        for _ in range(num_members):
+            derived_type_min_members = random.randint(min_members, max_members)
+            derived_type_max_members = random.randint(derived_type_min_members, max_members)
+            derived_type_max_depth = random.randint(min(1, 0), max_depth)
+
+            val.append(RandomDerivedTypeGeneratorHelper.generate_rand_derived_type_member(derived_type_min_members, derived_type_max_members, derived_type_max_depth))
+
+        return ADMMultiset(val)
+
+class RandomDerivedTypeGeneratorHelper:
+    # likelihood of type category x: (share of x) / (sum of all category shares)
+    PRIMITIVE_TYPE_SHARE = 12
+    INCOMPLETE_INFORMATION_TYPE_SHARE = 1
+    SUM_SHARES_NON_DERIVED_TYPE = PRIMITIVE_TYPE_SHARE + INCOMPLETE_INFORMATION_TYPE_SHARE
+    DERIVED_TYPE_SHARE = 7
+    SUM_SHARES = SUM_SHARES_NON_DERIVED_TYPE + DERIVED_TYPE_SHARE
+    NUM_DERIVED_TYPES = 3
+
+    @staticmethod
+    def generate_rand_derived_type_member(derived_type_min_members = 0, derived_type_max_members = 5, derived_type_max_depth = 5):
+        if derived_type_max_depth > 0:
+            choice = random.randint(1, RandomDerivedTypeGeneratorHelper.SUM_SHARES)
+        else:
+            choice = random.randint(1, RandomDerivedTypeGeneratorHelper.SUM_SHARES_NON_DERIVED_TYPE)
+
+        if choice <= RandomDerivedTypeGeneratorHelper.PRIMITIVE_TYPE_SHARE:
+            return RandomPrimitiveTypeGenerator.generate_rand()
+        elif choice <= RandomDerivedTypeGeneratorHelper.SUM_SHARES_NON_DERIVED_TYPE:
+            return RandomIncompleteInformationTypeGenerator.generate_rand()
+        else:
+            derived_type_choice = random.randint(1, RandomDerivedTypeGeneratorHelper.NUM_DERIVED_TYPES)
+
+            if derived_type_choice == 1:
+                deriv = ADMObject.generate_rand(derived_type_min_members, derived_type_max_members, derived_type_max_depth)
+            elif derived_type_choice == 2:
+                deriv = ADMArray.generate_rand(derived_type_min_members, derived_type_max_members, derived_type_max_depth)
+            else:
+                deriv = ADMMultiset.generate_rand(derived_type_min_members, derived_type_max_members, derived_type_max_depth)
+            return deriv
