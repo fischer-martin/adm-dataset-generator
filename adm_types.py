@@ -119,7 +119,7 @@ class AbstractADMNumberBaseType:
 class ADMTinyInt(AbstractADMNumberBaseType):
     min_val = -128
     max_val = 127
-    type_specifier = "tiny"
+    type_specifier = "tinyint"
 
     @staticmethod
     def generate_rand():
@@ -184,7 +184,7 @@ class ADMFloat(AbstractADMFloatingPointBaseType):
 
     @staticmethod
     def generate_rand(special_value_chance = 0.05):
-        if random.uniform(0, 1) <= special_value_chance:
+        if special_value_chance > 0 and random.uniform(0, 1) <= special_value_chance:
             return ADMFloat(AbstractADMFloatingPointBaseType.generate_rand_special_value())
         else:
             # numpy-random.uniform(a, b) only draws from [a, b) but
@@ -203,7 +203,7 @@ class ADMDouble(AbstractADMFloatingPointBaseType):
 
     @staticmethod
     def generate_rand(special_value_chance = 0.05):
-        if random.uniform(0, 1) <= special_value_chance:
+        if special_value_chance > 0 and random.uniform(0, 1) <= special_value_chance:
             return ADMDouble(AbstractADMFloatingPointBaseType.generate_rand_special_value())
         else:
             # numpy-random.uniform(a, b) only draws from [a, b) but
@@ -329,11 +329,15 @@ class ADMDate:
         self.val = datetime.date(year, month, day)
 
     def toADM(self) -> str:
-        return self.val.strftime("{remq}date({setq}%Y-%m-%d{setq}){remq}").format(remq = REMOVE_QUOTE_ESCAPE_MARKER, setq = SET_QUOTE_ESCAPE_MARKER)
+        return self.val.strftime("{remq}date({setq}{year:0>4}-%m-%d{setq}){remq}").format(remq = REMOVE_QUOTE_ESCAPE_MARKER, setq = SET_QUOTE_ESCAPE_MARKER, year = self.val.strftime("%Y"))
 
-    @staticmethod
-    def generate_rand():
-        year = random.randint(datetime.MINYEAR, datetime.MAXYEAR)
+    def generate_rand(min_year = None, max_year = None):
+        if not min_year:
+            min_year = datetime.MINYEAR
+        if not max_year:
+            max_year = datetime.MAXYEAR
+
+        year = random.randint(min_year, max_year)
         month = random.randint(1, 12)
         day = random.randint(1, calendar.monthrange(year, month)[1])
 
@@ -356,12 +360,20 @@ class ADMDateTime:
     def __init__(self, years, months, days, hours, minutes, seconds):
         self.val = datetime.datetime(years, months, days, hours, minutes, seconds)
 
+    def get_year(self):
+        return self.val.year
+
     def toADM(self) -> str:
-        return self.val.strftime("{remq}datetime({setq}%Y-%m-%dT%H:%M:%S{setq}){remq}").format(remq = REMOVE_QUOTE_ESCAPE_MARKER, setq = SET_QUOTE_ESCAPE_MARKER)
+        return self.val.strftime("{remq}datetime({setq}{year:0>4}-%m-%dT%H:%M:%S{setq}){remq}").format(remq = REMOVE_QUOTE_ESCAPE_MARKER, setq = SET_QUOTE_ESCAPE_MARKER, year = self.val.strftime("%Y"))
 
     @staticmethod
-    def generate_rand():
-        year = random.randint(datetime.MINYEAR, datetime.MAXYEAR)
+    def generate_rand(min_year = None, max_year = None):
+        if not min_year:
+            min_year = datetime.MINYEAR
+        if not max_year:
+            max_year = datetime.MAXYEAR
+
+        year = random.randint(min_year, max_year)
         month = random.randint(1, 12)
         day = random.randint(1, calendar.monthrange(year, month)[1])
 
@@ -422,7 +434,10 @@ class ADMInterval:
 
     @staticmethod
     def generate_rand():
-        return ADMInterval(ADMDateTime.generate_rand(), ADMDateTime.generate_rand())
+        start = ADMDateTime.generate_rand(max_year = datetime.MAXYEAR - 1)
+        end = ADMDateTime.generate_rand(min_year = start.get_year())
+
+        return ADMInterval(start, end)
 
 class ADMUUID:
     def __init__(self, uuid):
