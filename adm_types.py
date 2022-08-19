@@ -12,7 +12,15 @@ REMOVE_QUOTE_ESCAPE_MARKER = '😃'
 SET_QUOTE_ESCAPE_MARKER = '♡'
 REPLACE_MULTISET_BRACES_ESCAPE_MARKER = '😘'
 
-ADM_INDENTATION = 4
+class Settings:
+    ADM_INDENTATION = 4
+
+    # There are some slight differences in the lexers for data that is read from a file using LOAD DATASET and for data that is directly specified in a query.
+    FOR_FILE_LOAD = True
+
+    @staticmethod
+    def set_for_file_load(for_file_load: bool):
+        Settings.FOR_FILE_LOAD = for_file_load
 
 class ADMJSONEncoder(json.JSONEncoder):
     def default(self, o):
@@ -24,7 +32,7 @@ class ADMJSONEncoder(json.JSONEncoder):
 # formats an ADM instance into a string that represents it
 # kind of a hack, probably breaks if you look at it the wrong way
 def format(adm: object, pretty_print = False) -> str:
-    adm_string = json.dumps(adm, cls = ADMJSONEncoder, indent = ADM_INDENTATION if pretty_print else None, ensure_ascii = False)
+    adm_string = json.dumps(adm, cls = ADMJSONEncoder, indent = Settings.ADM_INDENTATION if pretty_print else None, ensure_ascii = False)
 
     # replace e.g. "tiny(42)" with tiny("42") through the use of our escape markers that we previously inserted into the strings
     adm_string = re.sub(r"\"{re}|{re}\"".format(re = REMOVE_QUOTE_ESCAPE_MARKER), "", adm_string)
@@ -428,7 +436,12 @@ class ADMYearMonthDuration:
         self.months = months
 
     def toADM(self) -> str:
-        return "{remq}year_month_duration({setq}P{years}Y{months}M{setq}){remq}".format(remq = REMOVE_QUOTE_ESCAPE_MARKER, setq = SET_QUOTE_ESCAPE_MARKER, years = self.years, months = self.months)
+        if Settings.FOR_FILE_LOAD:
+            type_specifier = "year-month-duration"
+        else:
+            type_specifier = "year_month_duration"
+
+        return "{remq}{type_specifier}({setq}P{years}Y{months}M{setq}){remq}".format(remq = REMOVE_QUOTE_ESCAPE_MARKER, setq = SET_QUOTE_ESCAPE_MARKER, type_specifier = type_specifier, years = self.years, months = self.months)
 
     @staticmethod
     def generate_rand():
@@ -443,7 +456,11 @@ class ADMDayTimeDuration:
         self.seconds = seconds
 
     def toADM(self) -> str:
-        return "{remq}day_time_duration({setq}P{days}DT{hours}H{minutes}M{seconds}S{setq}){remq}".format(remq = REMOVE_QUOTE_ESCAPE_MARKER, setq = SET_QUOTE_ESCAPE_MARKER, days = self.days, hours = self.hours, minutes = self.minutes, seconds = self.seconds)
+        if Settings.FOR_FILE_LOAD:
+            type_specifier = "day-time-duration"
+        else:
+            type_specifier = "day_time_duration"
+        return "{remq}{type_specifier}({setq}P{days}DT{hours}H{minutes}M{seconds}S{setq}){remq}".format(remq = REMOVE_QUOTE_ESCAPE_MARKER, setq = SET_QUOTE_ESCAPE_MARKER, type_specifier = type_specifier, days = self.days, hours = self.hours, minutes = self.minutes, seconds = self.seconds)
 
     @staticmethod
     def generate_rand():
@@ -481,7 +498,30 @@ class ADMUUID:
         return ADMUUID(ADMUUID.generate_reproducible_uuid())
 
 class RandomPrimitiveTypeGenerator:
-    primitive_gen = [ADMBoolean.generate_rand, ADMString.generate_rand, ADMTinyInt.generate_rand, ADMSmallInt.generate_rand, ADMInt.generate_rand, ADMBigInt.generate_rand, ADMFloat.generate_rand, ADMDouble.generate_rand, ADMBinary.generate_rand, ADMPoint.generate_rand, ADMLine.generate_rand, ADMRectangle.generate_rand, ADMCircle.generate_rand, ADMPolygon.generate_rand, ADMDate.generate_rand, ADMTime.generate_rand, ADMDateTime.generate_rand, ADMDuration.generate_rand, ADMYearMonthDuration.generate_rand, ADMDayTimeDuration.generate_rand, ADMInterval.generate_rand, ADMUUID.generate_rand]
+    primitive_gen = [
+            ADMBoolean.generate_rand,
+            ADMString.generate_rand,
+            ADMTinyInt.generate_rand,
+            ADMSmallInt.generate_rand,
+            ADMInt.generate_rand,
+            ADMBigInt.generate_rand,
+            ADMFloat.generate_rand,
+            ADMDouble.generate_rand,
+            ADMBinary.generate_rand,
+            ADMPoint.generate_rand,
+            ADMLine.generate_rand,
+            ADMRectangle.generate_rand,
+            ADMCircle.generate_rand,
+            ADMPolygon.generate_rand,
+            ADMDate.generate_rand,
+            ADMTime.generate_rand,
+            ADMDateTime.generate_rand,
+            ADMDuration.generate_rand,
+            ADMYearMonthDuration.generate_rand,
+            ADMDayTimeDuration.generate_rand,
+            ADMInterval.generate_rand,
+            ADMUUID.generate_rand
+        ]
 
     @staticmethod
     def generate_rand():
@@ -510,11 +550,23 @@ class ADMMissing:
         return ADMMissing()
 
 class RandomIncompleteInformationTypeGenerator:
-    incomplete_gen = [ADMNull.generate_rand, ADMMissing.generate_rand]
+    incomplete_gen_for_direct_insertion = [
+            ADMNull.generate_rand,
+            ADMMissing.generate_rand
+        ]
+    # The lexer for LOADing DATASETs from files wants to kill us if we try to use missing
+    incomplete_gen_for_file_load = [
+            ADMNull.generate_rand
+        ]
 
     @staticmethod
     def generate_rand():
-        return RandomIncompleteInformationTypeGenerator.incomplete_gen[random.randrange(len(RandomIncompleteInformationTypeGenerator.incomplete_gen))]()
+        if Settings.FOR_FILE_LOAD:
+            incomplete_gen = RandomIncompleteInformationTypeGenerator.incomplete_gen_for_file_load
+        else:
+            incomplete_gen = RandomIncompleteInformationTypeGenerator.incomplete_gen_for_direct_insertion
+
+        return incomplete_gen[random.randrange(len(incomplete_gen))]()
 
 
 
