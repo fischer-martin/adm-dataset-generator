@@ -1,4 +1,4 @@
-Tool to generate random [ADM](https://asterixdb.apache.org/docs/0.9.8/datamodel.html) datasets that can be used for testing of e.g. UDFs.  
+Tool to generate random [ADM](https://asterixdb.apache.org/docs/0.9.8/datamodel.html) datasets that can be used for testing.
 Relies on a hacky usage of Python's JSON encoder and regex so expect your computer to explode randomly if you use this tool.
 
 ### Usage
