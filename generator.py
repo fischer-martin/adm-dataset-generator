@@ -16,7 +16,7 @@ argparser.add_argument("-o", "--output", help = "output file, stdout if not spec
 argparser.add_argument("-d", "--for-direct-insertion", help = "formats type specifiers for direct insertion into datasets (contrary to usage of LOAD DATASET)", action = "store_true")
 argparser.add_argument("-p", "--pretty-print", help = "pretty print generated output", action = "store_true")
 argparser.add_argument("-s", "--seed", help = "seed for random number generator", type = int, default = 42)
-argparser.add_argument("-c", "--shares", help = "approximate share of primitive, incomple information, and derived types in the records respectively", nargs = 3, default = [7, 1, 12])
+argparser.add_argument("-c", "--shares", help = "approximate share of primitive, incomple information, and derived types in the records respectively", type = int, nargs = 3, default = [7, 1, 12])
 args = argparser.parse_args()
 
 if args.for_direct_insertion:
