@@ -3,7 +3,7 @@ Relies on a hacky usage of Python's JSON encoder and regex so expect your comput
 
 ### Usage
 ```
-usage: generator.py [-h] -n NUM_RECORDS [-o OUTPUT] [-d] [-p] [-s SEED] [-c SHARES SHARES SHARES]
+usage: generator.py [-h] -n NUM_RECORDS [-o OUTPUT] [-d] [-p] [-s SEED] [-c SHARES SHARES SHARES] [-k HAS_KEY]
 
 options:
   -h, --help            show this help message and exit
@@ -17,6 +17,8 @@ options:
   -s SEED, --seed SEED  seed for random number generator
   -c SHARES SHARES SHARES, --shares SHARES SHARES SHARES
                         approximate share of primitive, incomple information, and derived types in the records respectively
+  -k HAS_KEY, --has-key HAS_KEY
+                        ensures that this key exists in every record
 ```
 
 ### Dependencies
