@@ -577,6 +577,9 @@ class ADMObject:
     def toADM(self):
         return self.val
 
+    def add_key(self, key, value):
+        self.val.update({key: value})
+
     @staticmethod
     def generate_rand(min_members = 0, max_members = 7, max_depth = 5):
         val = {}
